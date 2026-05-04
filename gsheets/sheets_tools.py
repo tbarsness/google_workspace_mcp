@@ -10,6 +10,8 @@ import json
 import copy
 from typing import List, Optional, Union
 
+from mcp.types import ToolAnnotations
+
 from auth.service_decorator import require_google_service
 from core.server import server
 from core.utils import handle_http_errors, UserInputError, StringList
@@ -38,7 +40,15 @@ from gsheets.sheets_helpers import (
 logger = logging.getLogger(__name__)
 
 
-@server.tool()
+@server.tool(
+    title="List Spreadsheets",
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
+)
 @handle_http_errors("list_spreadsheets", is_read_only=True, service_type="sheets")
 @require_google_service("drive", "drive_read")
 async def list_spreadsheets(
@@ -91,7 +101,15 @@ async def list_spreadsheets(
     return text_output
 
 
-@server.tool()
+@server.tool(
+    title="Get Spreadsheet Info",
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
+)
 @handle_http_errors("get_spreadsheet_info", is_read_only=True, service_type="sheets")
 @require_google_service("sheets", "sheets_read")
 async def get_spreadsheet_info(
@@ -169,7 +187,15 @@ async def get_spreadsheet_info(
     return text_output
 
 
-@server.tool()
+@server.tool(
+    title="Read Sheet Values",
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
+)
 @handle_http_errors("read_sheet_values", is_read_only=True, service_type="sheets")
 @require_google_service("sheets", "sheets_read")
 async def read_sheet_values(
@@ -284,7 +310,15 @@ async def read_sheet_values(
     )
 
 
-@server.tool()
+@server.tool(
+    title="Read Sheet Formatting",
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
+)
 @handle_http_errors("read_sheet_formatting", is_read_only=True, service_type="sheets")
 @require_google_service("sheets", "sheets_read")
 async def read_sheet_formatting(
@@ -294,8 +328,9 @@ async def read_sheet_formatting(
     range_name: str = "A1:Z100",
 ) -> str:
     """
-    Reads cell formatting (background colors, text colors, bold, italic, font size)
-    from a specific range in a Google Sheet.
+    Reads cell formatting (background colors, text colors, bold, italic, font size,
+    alignment, wrap strategy, number format) from a specific range in a Google Sheet.
+    Useful for inspecting visual styles when re-applying or reasoning about layout.
 
     Args:
         user_google_email (str): The user's Google email address. Required.
@@ -303,7 +338,7 @@ async def read_sheet_formatting(
         range_name (str): The range to read (e.g., "Sheet1!A1:D10"). Defaults to "A1:Z100".
 
     Returns:
-        str: Cell formatting details including background colors, text colors, and text styles.
+        str: Cell formatting details for non-default cells, one cell per line.
     """
     logger.info(
         f"[read_sheet_formatting] Invoked. Email: '{user_google_email}', "
@@ -336,9 +371,7 @@ async def read_sheet_formatting(
     sheet = sheets[0]
     grid_data = sheet.get("data", [])
     if not grid_data:
-        return (
-            f"No formatting data found in range '{range_name}' for {user_google_email}."
-        )
+        return f"No formatting data found in range '{range_name}' for {user_google_email}."
 
     data_block = grid_data[0]
     start_row = data_block.get("startRow", 0)
@@ -431,7 +464,15 @@ async def read_sheet_formatting(
     return output
 
 
-@server.tool()
+@server.tool(
+    title="Modify Sheet Values",
+    annotations=ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
 @handle_http_errors("modify_sheet_values", service_type="sheets")
 @require_google_service("sheets", "sheets_write")
 async def modify_sheet_values(
@@ -800,7 +841,15 @@ async def _format_sheet_range_impl(
     }
 
 
-@server.tool()
+@server.tool(
+    title="Format Sheet Range",
+    annotations=ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
 @handle_http_errors("format_sheet_range", service_type="sheets")
 @require_google_service("sheets", "sheets_write")
 async def format_sheet_range(
@@ -879,7 +928,15 @@ async def format_sheet_range(
     )
 
 
-@server.tool()
+@server.tool(
+    title="Manage Conditional Formatting",
+    annotations=ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
 @handle_http_errors("manage_conditional_formatting", service_type="sheets")
 @require_google_service("sheets", "sheets_write")
 async def manage_conditional_formatting(
@@ -1277,7 +1334,15 @@ async def manage_conditional_formatting(
         )
 
 
-@server.tool()
+@server.tool(
+    title="Create Spreadsheet",
+    annotations=ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
 @handle_http_errors("create_spreadsheet", service_type="sheets")
 @require_google_service("sheets", "sheets_write")
 async def create_spreadsheet(
@@ -1333,31 +1398,93 @@ async def create_spreadsheet(
     return text_output
 
 
-@server.tool()
+@server.tool(
+    title="Create Sheet",
+    annotations=ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
 @handle_http_errors("create_sheet", service_type="sheets")
 @require_google_service("sheets", "sheets_write")
 async def create_sheet(
     service,
     user_google_email: str,
     spreadsheet_id: str,
-    sheet_name: str,
+    sheet_name: Optional[str] = None,
+    source_sheet_name: Optional[str] = None,
+    insert_sheet_index: Optional[int] = None,
 ) -> str:
-    """
-    Creates a new sheet within an existing spreadsheet.
+    """Creates a new sheet or duplicates an existing sheet (user_google_email: str, spreadsheet_id: str, sheet_name: Optional[str] = None, source_sheet_name: Optional[str] = None, insert_sheet_index: Optional[int] = None)."""
+    if insert_sheet_index is not None and (
+        isinstance(insert_sheet_index, bool)
+        or not isinstance(insert_sheet_index, int)
+        or insert_sheet_index < 0
+    ):
+        raise UserInputError("insert_sheet_index must be a non-negative integer.")
 
-    Args:
-        user_google_email (str): The user's Google email address. Required.
-        spreadsheet_id (str): The ID of the spreadsheet. Required.
-        sheet_name (str): The name of the new sheet. Required.
+    if source_sheet_name is not None:
+        source_sheet_name = source_sheet_name.strip()
+        if not source_sheet_name:
+            raise UserInputError("source_sheet_name must be a non-empty string")
 
-    Returns:
-        str: Confirmation message of the successful sheet creation.
-    """
+        logger.info(
+            f"[create_sheet] Duplicate invoked. Email: '{user_google_email}', "
+            f"Spreadsheet: {spreadsheet_id}, Source: {source_sheet_name}"
+        )
+
+        spreadsheet = await asyncio.to_thread(
+            service.spreadsheets()
+            .get(spreadsheetId=spreadsheet_id, fields="sheets.properties")
+            .execute
+        )
+
+        sheets = spreadsheet.get("sheets", [])
+        source_sheet = _select_sheet(sheets, source_sheet_name)
+        source_sheet_id = source_sheet["properties"]["sheetId"]
+
+        dup_request = {"sourceSheetId": source_sheet_id}
+        if sheet_name is not None:
+            dup_request["newSheetName"] = sheet_name
+        if insert_sheet_index is not None:
+            dup_request["insertSheetIndex"] = insert_sheet_index
+
+        request_body = {"requests": [{"duplicateSheet": dup_request}]}
+
+        response = await asyncio.to_thread(
+            service.spreadsheets()
+            .batchUpdate(spreadsheetId=spreadsheet_id, body=request_body)
+            .execute
+        )
+
+        new_props = response["replies"][0]["duplicateSheet"]["properties"]
+        new_id = new_props["sheetId"]
+        new_title = new_props["title"]
+
+        text_output = (
+            f"Successfully duplicated '{source_sheet_name}' to '{new_title}' "
+            f"(ID: {new_id}) in spreadsheet {spreadsheet_id} for {user_google_email}."
+        )
+
+        logger.info(
+            f"Successfully duplicated sheet for {user_google_email}. "
+            f"New sheet: '{new_title}' (ID: {new_id})"
+        )
+        return text_output
+
     logger.info(
         f"[create_sheet] Invoked. Email: '{user_google_email}', Spreadsheet: {spreadsheet_id}, Sheet: {sheet_name}"
     )
 
-    request_body = {"requests": [{"addSheet": {"properties": {"title": sheet_name}}}]}
+    add_request: dict = {"properties": {}}
+    if sheet_name is not None:
+        add_request["properties"]["title"] = sheet_name
+    if insert_sheet_index is not None:
+        add_request["properties"]["index"] = insert_sheet_index
+
+    request_body = {"requests": [{"addSheet": add_request}]}
 
     response = await asyncio.to_thread(
         service.spreadsheets()
@@ -1365,89 +1492,14 @@ async def create_sheet(
         .execute
     )
 
-    sheet_id = response["replies"][0]["addSheet"]["properties"]["sheetId"]
+    sheet_props = response["replies"][0]["addSheet"]["properties"]
+    sheet_id = sheet_props["sheetId"]
+    created_sheet_name = sheet_props.get("title", sheet_name or "Untitled")
 
-    text_output = f"Successfully created sheet '{sheet_name}' (ID: {sheet_id}) in spreadsheet {spreadsheet_id} for {user_google_email}."
+    text_output = f"Successfully created sheet '{created_sheet_name}' (ID: {sheet_id}) in spreadsheet {spreadsheet_id} for {user_google_email}."
 
     logger.info(
         f"Successfully created sheet for {user_google_email}. Sheet ID: {sheet_id}"
-    )
-    return text_output
-
-
-@server.tool()
-@handle_http_errors("duplicate_sheet", service_type="sheets")
-@require_google_service("sheets", "sheets_write")
-async def duplicate_sheet(
-    service,
-    user_google_email: str,
-    spreadsheet_id: str,
-    source_sheet_name: str,
-    new_sheet_name: Optional[str] = None,
-    insert_sheet_index: Optional[int] = None,
-) -> str:
-    """
-    Duplicates an existing sheet within a spreadsheet, preserving all values,
-    formulas, formatting, conditional formatting, and column/row dimensions.
-
-    Args:
-        user_google_email (str): The user's Google email address. Required.
-        spreadsheet_id (str): The ID of the spreadsheet. Required.
-        source_sheet_name (str): The name of the sheet to duplicate. Required.
-        new_sheet_name (Optional[str]): Name for the new sheet. If not provided,
-            defaults to "Copy of <source_sheet_name>".
-        insert_sheet_index (Optional[int]): 0-based position for the new sheet.
-            0 makes it the first sheet. If not provided, the new sheet is
-            appended at the end.
-
-    Returns:
-        str: Confirmation message with the new sheet's name and ID.
-    """
-    logger.info(
-        f"[duplicate_sheet] Invoked. Email: '{user_google_email}', "
-        f"Spreadsheet: {spreadsheet_id}, Source: {source_sheet_name}"
-    )
-
-    # Fetch spreadsheet metadata to resolve sheet name to ID
-    spreadsheet = await asyncio.to_thread(
-        service.spreadsheets()
-        .get(spreadsheetId=spreadsheet_id, fields="sheets.properties")
-        .execute
-    )
-
-    sheets = spreadsheet.get("sheets", [])
-    source_sheet = _select_sheet(sheets, source_sheet_name)
-    source_sheet_id = source_sheet["properties"]["sheetId"]
-
-    # Build the DuplicateSheet request
-    dup_request = {
-        "sourceSheetId": source_sheet_id,
-    }
-    if new_sheet_name is not None:
-        dup_request["newSheetName"] = new_sheet_name
-    if insert_sheet_index is not None:
-        dup_request["insertSheetIndex"] = insert_sheet_index
-
-    request_body = {"requests": [{"duplicateSheet": dup_request}]}
-
-    response = await asyncio.to_thread(
-        service.spreadsheets()
-        .batchUpdate(spreadsheetId=spreadsheet_id, body=request_body)
-        .execute
-    )
-
-    new_props = response["replies"][0]["duplicateSheet"]["properties"]
-    new_id = new_props["sheetId"]
-    new_title = new_props["title"]
-
-    text_output = (
-        f"Successfully duplicated '{source_sheet_name}' to '{new_title}' "
-        f"(ID: {new_id}) in spreadsheet {spreadsheet_id} for {user_google_email}."
-    )
-
-    logger.info(
-        f"Successfully duplicated sheet for {user_google_email}. "
-        f"New sheet: '{new_title}' (ID: {new_id})"
     )
     return text_output
 
@@ -1464,7 +1516,15 @@ def _to_extended_value(val) -> dict:
     return {"stringValue": s}
 
 
-@server.tool()
+@server.tool(
+    title="List Sheet Tables",
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
+)
 @handle_http_errors("list_sheet_tables", is_read_only=True, service_type="sheets")
 @require_google_service("sheets", "sheets_read")
 async def list_sheet_tables(
@@ -1540,7 +1600,15 @@ async def list_sheet_tables(
     return text_output
 
 
-@server.tool()
+@server.tool(
+    title="Append Table Rows",
+    annotations=ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
 @handle_http_errors("append_table_rows", service_type="sheets")
 @require_google_service("sheets", "sheets_write")
 async def append_table_rows(
@@ -1724,6 +1792,7 @@ async def _resize_sheet_dimensions_impl(
     insert_columns: Optional[int] = None,
     insert_columns_at: Optional[str] = None,
     delete_rows: Optional[Union[str, List[int]]] = None,
+    delete_row_range: Optional[str] = None,
     delete_columns: Optional[Union[str, List[str]]] = None,
 ) -> dict:
     """Internal implementation for resize_sheet_dimensions.
@@ -1751,6 +1820,9 @@ async def _resize_sheet_dimensions_impl(
         insert_columns: Number of columns to insert.
         insert_columns_at: Column letter to insert before (e.g. "C"). Appends to end if omitted.
         delete_rows: List of 1-based row numbers to delete.
+        delete_row_range: Contiguous range of rows to delete, as "start:end"
+            (1-based, inclusive). Example: "5:10". More efficient than
+            delete_rows for large contiguous ranges.
         delete_columns: List of column letters to delete.
 
     Returns:
@@ -1771,6 +1843,7 @@ async def _resize_sheet_dimensions_impl(
             insert_rows is not None,
             insert_columns is not None,
             delete_rows,
+            delete_row_range,
             delete_columns,
         ]
     )
@@ -1780,7 +1853,7 @@ async def _resize_sheet_dimensions_impl(
             "auto_resize_columns, auto_resize_rows, frozen_row_count, "
             "frozen_column_count, hide_columns, unhide_columns, "
             "hide_rows, unhide_rows, insert_rows, insert_columns, "
-            "delete_rows, or delete_columns."
+            "delete_rows, delete_row_range, or delete_columns."
         )
 
     # Parse JSON string parameters
@@ -2107,6 +2180,14 @@ async def _resize_sheet_dimensions_impl(
             )
             applied_parts.append(f"appended {insert_columns} column(s)")
 
+    # Reject mixing delete_rows and delete_row_range — their interleaved
+    # deleteDimension requests shift indices unpredictably.
+    if delete_rows and delete_row_range:
+        raise UserInputError(
+            "delete_rows and delete_row_range cannot be used together. "
+            "Specify one or the other."
+        )
+
     # Build delete row requests (process in reverse to keep indices stable)
     if delete_rows:
         if not isinstance(delete_rows, list):
@@ -2138,6 +2219,45 @@ async def _resize_sheet_dimensions_impl(
                 }
             )
         applied_parts.append(f"deleted rows: {', '.join(str(r) for r in delete_rows)}")
+
+    # Build delete row range request (contiguous range, single API call)
+    if delete_row_range:
+        if isinstance(delete_row_range, str) and ":" in delete_row_range:
+            parts = delete_row_range.split(":", 1)
+            try:
+                range_start = int(parts[0])
+                range_end = int(parts[1])
+            except ValueError as exc:
+                raise UserInputError(
+                    f"Invalid delete_row_range format: '{delete_row_range}'. "
+                    f"Expected 'start:end' with integer row numbers."
+                ) from exc
+        else:
+            raise UserInputError(
+                f"delete_row_range must be a 'start:end' string (e.g. '5:10'), "
+                f"got: '{delete_row_range}'."
+            )
+        if range_start < 1 or range_end < range_start:
+            raise UserInputError(
+                f"Invalid row range: start={range_start}, end={range_end}. "
+                f"Rows are 1-based and end must be >= start."
+            )
+        requests.append(
+            {
+                "deleteDimension": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "dimension": "ROWS",
+                        "startIndex": range_start - 1,
+                        "endIndex": range_end,
+                    }
+                }
+            }
+        )
+        num_range_deleted = range_end - range_start + 1
+        applied_parts.append(
+            f"deleted row range {range_start}-{range_end} ({num_range_deleted} row(s))"
+        )
 
     # Build delete column requests (process in reverse to keep indices stable)
     if delete_columns:
@@ -2183,7 +2303,15 @@ async def _resize_sheet_dimensions_impl(
     }
 
 
-@server.tool()
+@server.tool(
+    title="Resize Sheet Dimensions",
+    annotations=ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
 @handle_http_errors("resize_sheet_dimensions", service_type="sheets")
 @require_google_service("sheets", "sheets_write")
 async def resize_sheet_dimensions(
@@ -2206,6 +2334,7 @@ async def resize_sheet_dimensions(
     insert_columns: Optional[int] = None,
     insert_columns_at: Optional[str] = None,
     delete_rows: Optional[Union[str, List[int]]] = None,
+    delete_row_range: Optional[str] = None,
     delete_columns: Optional[Union[str, List[str]]] = None,
 ) -> str:
     """
@@ -2247,7 +2376,11 @@ async def resize_sheet_dimensions(
         insert_columns_at (Optional[str]): Column letter to insert before
             (e.g. "C"). Appends to the end if omitted.
         delete_rows (Optional[Union[str, List[int]]]): List of 1-based row
-            numbers to delete. Example: [5, 6].
+            numbers to delete. Example: [5, 6]. Best for non-contiguous rows.
+        delete_row_range (Optional[str]): Contiguous range of rows to delete,
+            as "start:end" (1-based, inclusive). Example: "5:10" deletes rows
+            5 through 10. More efficient than delete_rows for large contiguous
+            ranges.
         delete_columns (Optional[Union[str, List[str]]]): List of column
             letters to delete. Example: ["E", "F"].
 
@@ -2279,6 +2412,7 @@ async def resize_sheet_dimensions(
         insert_columns=insert_columns,
         insert_columns_at=insert_columns_at,
         delete_rows=delete_rows,
+        delete_row_range=delete_row_range,
         delete_columns=delete_columns,
     )
 
@@ -2286,6 +2420,170 @@ async def resize_sheet_dimensions(
         f"Applied dimension changes in spreadsheet {result['spreadsheet_id']} "
         f"for {user_google_email}: {result['summary']}."
     )
+
+
+@server.tool(
+    title="Move Sheet Rows",
+    annotations=ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
+@handle_http_errors("move_sheet_rows", service_type="sheets")
+@require_google_service("sheets", "sheets_write")
+async def move_sheet_rows(
+    service,
+    user_google_email: str,
+    spreadsheet_id: str,
+    source_sheet: str,
+    start_row: int,
+    end_row: int,
+    destination_sheet: str,
+) -> str:
+    """
+    Moves rows from one sheet to another within the same spreadsheet. The move
+    is performed in a single batchUpdate (copyPaste followed by
+    deleteDimension). Note: batchUpdate executes requests sequentially but does
+    not roll back on partial failure — if the copy succeeds but the delete
+    fails, rows may be duplicated. Formulas, data types, and formatting are
+    preserved (unlike a values.get/append round-trip).
+    Row numbers are 1-based (matching the spreadsheet UI).
+
+    Args:
+        user_google_email (str): The user's Google email address. Required.
+        spreadsheet_id (str): The ID of the spreadsheet. Required.
+        source_sheet (str): Name of the sheet to move rows from. Required.
+        start_row (int): First row to move (1-based, inclusive). Required.
+        end_row (int): Last row to move (1-based, inclusive). Required.
+        destination_sheet (str): Name of the sheet to move rows to. Required.
+
+    Returns:
+        str: Confirmation message with the number of rows moved.
+    """
+    logger.info(
+        f"[move_sheet_rows] Invoked. Email: '{user_google_email}', "
+        f"Spreadsheet: {spreadsheet_id}, "
+        f"From: {source_sheet}!{start_row}-{end_row}, To: {destination_sheet}"
+    )
+
+    if start_row < 1 or end_row < start_row:
+        raise UserInputError(
+            f"Invalid row range: start_row={start_row}, end_row={end_row}. "
+            f"Rows are 1-based and end_row must be >= start_row."
+        )
+
+    if source_sheet == destination_sheet:
+        raise UserInputError("source_sheet and destination_sheet must be different.")
+
+    spreadsheet = await asyncio.to_thread(
+        service.spreadsheets()
+        .get(
+            spreadsheetId=spreadsheet_id,
+            fields="sheets(properties(sheetId,title,gridProperties))",
+        )
+        .execute
+    )
+    sheets = spreadsheet.get("sheets", [])
+    src = _select_sheet(sheets, source_sheet)
+    dst = _select_sheet(sheets, destination_sheet)
+    src_id = src["properties"]["sheetId"]
+    dst_id = dst["properties"]["sheetId"]
+    dst_grid_rows = dst["properties"].get("gridProperties", {}).get("rowCount", 0)
+
+    # Validate that the source row block actually contains data.
+    safe_source = source_sheet.replace("'", "''")
+    src_range = f"'{safe_source}'!{start_row}:{end_row}"
+    src_values = await asyncio.to_thread(
+        service.spreadsheets()
+        .values()
+        .get(spreadsheetId=spreadsheet_id, range=src_range)
+        .execute
+    )
+    if not src_values.get("values"):
+        raise UserInputError(
+            f"Source range '{source_sheet}' rows {start_row}-{end_row} "
+            f"contains no data. Nothing to move."
+        )
+
+    # Find the last row with actual data in the destination sheet.
+    # gridProperties.rowCount is the allocated grid size (e.g. 1000 for a new
+    # sheet), not the count of rows containing data.  Fetch all columns so the
+    # append position reflects any non-empty cell, not just column A.
+    safe_destination = destination_sheet.replace("'", "''")
+    dst_values = await asyncio.to_thread(
+        service.spreadsheets()
+        .values()
+        .get(
+            spreadsheetId=spreadsheet_id,
+            range=f"'{safe_destination}'",
+            majorDimension="ROWS",
+        )
+        .execute
+    )
+    dst_data_rows = len(dst_values.get("values", []))
+
+    num_rows = end_row - start_row + 1
+    paste_start = dst_data_rows
+
+    # If pasting beyond the current grid, expand the destination sheet first.
+    requests = []
+    if paste_start + num_rows > dst_grid_rows:
+        requests.append(
+            {
+                "appendDimension": {
+                    "sheetId": dst_id,
+                    "dimension": "ROWS",
+                    "length": (paste_start + num_rows) - dst_grid_rows,
+                }
+            }
+        )
+
+    requests.extend(
+        [
+            {
+                "copyPaste": {
+                    "source": {
+                        "sheetId": src_id,
+                        "startRowIndex": start_row - 1,
+                        "endRowIndex": end_row,
+                    },
+                    "destination": {
+                        "sheetId": dst_id,
+                        "startRowIndex": paste_start,
+                        "endRowIndex": paste_start + num_rows,
+                    },
+                    "pasteType": "PASTE_NORMAL",
+                }
+            },
+            {
+                "deleteDimension": {
+                    "range": {
+                        "sheetId": src_id,
+                        "dimension": "ROWS",
+                        "startIndex": start_row - 1,
+                        "endIndex": end_row,
+                    }
+                }
+            },
+        ]
+    )
+
+    await asyncio.to_thread(
+        service.spreadsheets()
+        .batchUpdate(spreadsheetId=spreadsheet_id, body={"requests": requests})
+        .execute
+    )
+
+    text_output = (
+        f"Successfully moved {num_rows} row(s) from '{source_sheet}' "
+        f"(rows {start_row}-{end_row}) to '{destination_sheet}' "
+        f"in spreadsheet {spreadsheet_id} for {user_google_email}."
+    )
+
+    logger.info(f"[move_sheet_rows] Moved {num_rows} rows for {user_google_email}")
+    return text_output
 
 
 # Create comment management tools for sheets
