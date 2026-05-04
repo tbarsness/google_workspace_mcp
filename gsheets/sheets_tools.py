@@ -334,10 +334,11 @@ async def read_sheet_formatting(
         return f"No data found in range '{range_name}' for {user_google_email}."
 
     sheet = sheets[0]
-    sheet_title = sheet.get("properties", {}).get("title", "Sheet1")
     grid_data = sheet.get("data", [])
     if not grid_data:
-        return f"No formatting data found in range '{range_name}' for {user_google_email}."
+        return (
+            f"No formatting data found in range '{range_name}' for {user_google_email}."
+        )
 
     data_block = grid_data[0]
     start_row = data_block.get("startRow", 0)
@@ -375,23 +376,6 @@ async def read_sheet_formatting(
             bg_hex = _color_to_hex(bg_color) if bg_color else ""
             fg_hex = _color_to_hex(fg_color) if fg_color else ""
 
-            # Skip cells with default white background and no special formatting
-            is_default_bg = bg_hex in ("", "#FFFFFF")
-            is_default_fg = fg_hex in ("", "#000000")
-            has_style = bold_val or italic_val
-            if is_default_bg and is_default_fg and not has_style:
-                continue
-
-            # Build cell reference
-            col_letter = ""
-            c = col_idx + start_col
-            while True:
-                col_letter = chr(65 + c % 26) + col_letter
-                c = c // 26 - 1
-                if c < 0:
-                    break
-            cell_ref = f"{col_letter}{row_idx + start_row + 1}"
-
             parts = []
             if bg_hex and bg_hex != "#FFFFFF":
                 parts.append(f"bg={bg_hex}")
@@ -412,8 +396,20 @@ async def read_sheet_formatting(
             if num_format:
                 parts.append(f"number_format={num_format.get('type', '')}")
 
-            if parts:
-                formatted_cells.append(f"  {cell_ref}: {', '.join(parts)}")
+            if not parts:
+                continue
+
+            # Build cell reference (e.g. A1, AA1)
+            col_letter = ""
+            c = col_idx + start_col
+            while True:
+                col_letter = chr(65 + c % 26) + col_letter
+                c = c // 26 - 1
+                if c < 0:
+                    break
+            cell_ref = f"{col_letter}{row_idx + start_row + 1}"
+
+            formatted_cells.append(f"  {cell_ref}: {', '.join(parts)}")
 
     if not formatted_cells:
         return (
